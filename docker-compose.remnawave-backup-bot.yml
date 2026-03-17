@@ -1,0 +1,25 @@
+services:
+  remnawave-backup-bot:
+    build:
+      context: .
+    container_name: remnawave-backup-bot
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - DB_HOST=remnawave-db
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - BACKUP_SCHEDULE_CRON=${BACKUP_SCHEDULE_CRON:-0 3 * * *}
+      - EXCEL_TABLES=${EXCEL_TABLES:-}
+    networks:
+      - remnawave-network
+
+networks:
+  remnawave-network:
+    external: true
+
