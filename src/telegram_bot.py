@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from pathlib import Path
 from typing import Callable, Awaitable
 
@@ -11,6 +12,7 @@ from .config import Settings
 
 
 BackupFunc = Callable[[Settings], Awaitable[tuple[Path, Path]]]
+logger = logging.getLogger("rm-backup-bot.telegram")
 
 
 async def _run_backup(settings: Settings) -> tuple[Path, Path]:
@@ -26,18 +28,23 @@ def create_dispatcher(settings: Settings) -> Dispatcher:
     async def cmd_start(message: Message) -> None:
         if str(message.chat.id) != settings.telegram_chat_id:
             # Игнорируем чужие чаты, чтобы не светить наличие бота
+            logger.info("Ignored /start from foreign chat_id=%s", message.chat.id)
             return
+        logger.info("Received /start from chat_id=%s user=%s", message.chat.id, message.from_user.id if message.from_user else None)
         await message.answer("Бот бэкапов готов. Команда /backup создаст дамп и Excel и пришлёт их сюда.")
 
     @dp.message(Command("backup"))
     async def cmd_backup(message: Message) -> None:
         if str(message.chat.id) != settings.telegram_chat_id:
             # Молча игнорируем команды из других чатов
+            logger.info("Ignored /backup from foreign chat_id=%s", message.chat.id)
             return
+        logger.info("Manual backup requested from chat_id=%s user=%s", message.chat.id, message.from_user.id if message.from_user else None)
         await message.answer("Делаю бэкап, подождите...")
         try:
             sql_path, excel_path = await _run_backup(settings)
         except Exception as exc:  # noqa: BLE001
+            logger.exception("Error while creating manual backup: %s", exc)
             await message.answer(f"Ошибка при создании бэкапа: {exc}")
             return
 
@@ -53,6 +60,7 @@ def create_dispatcher(settings: Settings) -> Dispatcher:
                 document=excel_file,
                 caption="Excel-отчёт по данным",
             )
+            logger.info("Manual backup sent successfully: sql=%s excel=%s", sql_path, excel_path)
         finally:
             # Удаляем временные файлы
             for path in (sql_path, excel_path):
@@ -68,9 +76,11 @@ async def send_scheduled_backup(bot: Bot, settings: Settings) -> None:
     """
     Используется планировщиком: создаёт бэкап и шлёт файлы в TELEGRAM_CHAT_ID.
     """
+    logger.info("Running scheduled backup...")
     try:
         sql_path, excel_path = await _run_backup(settings)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("Error while creating scheduled backup: %s", exc)
         # Отправляем сообщение об ошибке в основной чат
         await bot.send_message(chat_id=settings.telegram_chat_id, text=f"Ошибка планового бэкапа: {exc}")
         return
@@ -89,6 +99,7 @@ async def send_scheduled_backup(bot: Bot, settings: Settings) -> None:
             document=excel_file,
             caption="Плановый Excel-отчёт по данным",
         )
+        logger.info("Scheduled backup sent successfully: sql=%s excel=%s", sql_path, excel_path)
     finally:
         for path in (sql_path, excel_path):
             try:

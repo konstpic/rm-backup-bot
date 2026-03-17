@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -9,6 +10,8 @@ from aiogram import Bot
 
 from .config import Settings
 from .telegram_bot import send_scheduled_backup
+
+logger = logging.getLogger("rm-backup-bot.scheduler")
 
 
 def setup_scheduler(bot: Bot, settings: Settings) -> Optional[AsyncIOScheduler]:
@@ -23,6 +26,9 @@ def setup_scheduler(bot: Bot, settings: Settings) -> Optional[AsyncIOScheduler]:
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(send_scheduled_backup, trigger=trigger, args=[bot, settings])
     scheduler.start()
+
+    logger.info("Scheduler started with cron '%s' (timezone=UTC)", settings.backup_schedule_cron)
+
     return scheduler
 
 
