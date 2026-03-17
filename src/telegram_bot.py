@@ -4,7 +4,7 @@ from typing import Callable, Awaitable
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import Message, FSInputFile
 
 from .backup import create_backup_pair
 from .config import Settings
@@ -42,12 +42,15 @@ def create_dispatcher(settings: Settings) -> Dispatcher:
             return
 
         try:
+            sql_file = FSInputFile(str(sql_path), filename=sql_path.name)
+            excel_file = FSInputFile(str(excel_path), filename=excel_path.name)
+
             await message.answer_document(
-                document=sql_path.open("rb"),
+                document=sql_file,
                 caption="SQL-дамп базы",
             )
             await message.answer_document(
-                document=excel_path.open("rb"),
+                document=excel_file,
                 caption="Excel-отчёт по данным",
             )
         finally:
@@ -73,14 +76,17 @@ async def send_scheduled_backup(bot: Bot, settings: Settings) -> None:
         return
 
     try:
+        sql_file = FSInputFile(str(sql_path), filename=sql_path.name)
+        excel_file = FSInputFile(str(excel_path), filename=excel_path.name)
+
         await bot.send_document(
             chat_id=settings.telegram_chat_id,
-            document=sql_path.open("rb"),
+            document=sql_file,
             caption="Плановый SQL-дамп базы",
         )
         await bot.send_document(
             chat_id=settings.telegram_chat_id,
-            document=excel_path.open("rb"),
+            document=excel_file,
             caption="Плановый Excel-отчёт по данным",
         )
     finally:
